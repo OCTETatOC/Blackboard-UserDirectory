@@ -36,8 +36,6 @@ static final String EASTER_EGG_AUDIO_PAGE = "http://octet1.csr.oberlin.edu/octet
 // Number of people per page
 static final int PAGE_SIZE = 10;
 
-// Should we show them potentially sensitive information?
-static boolean displayPrivilegedInformation;
 // Relevant portal roles
 static PortalRole studentPortalRole;
 static PortalRole facultyPortalRole;
@@ -59,8 +57,6 @@ catch(Exception e)
     e.printStackTrace(new PrintWriter(out));
     out.println(" -->");
 }
-
-displayPrivilegedInformation = false;
 
 // What text did they ask to search for?
 String searchTerm = request.getParameter("searchterm");
@@ -96,8 +92,6 @@ nonObiePortalRole = getPortalRoleByName(portalRoles, "Non Obie");
 // Find the guest portal role.
 guestPortalRole = getPortalRoleByName(portalRoles, "Guest");
 
-// displayPrivilegedInformation = false;
-
 // Find out who the user is.
 User currentUser = ctx.getUser();
 // Find the current user's portal role.
@@ -109,14 +103,10 @@ if(!ctx.getSession().isAuthenticated() ||
     out.print("<div>You must be logged in to use this tool.</div>");
     return;
 }
-// If they are a member of faculty or staff, we show them more.
-else if(currentUserPortalRoleId.equals(facultyPortalRole.getId()) ||
-        currentUserPortalRoleId.equals(staffPortalRole.getId()))
-{
-    displayPrivilegedInformation = true;
-}
 // If they are not a student, alumnus, or faculty/emeriti, block access.
-else if(!(currentUserPortalRoleId.equals(studentPortalRole.getId()) ||
+else if(!(currentUserPortalRoleId.equals(facultyPortalRole.getId()) ||
+          currentUserPortalRoleId.equals(staffPortalRole.getId())   ||
+          currentUserPortalRoleId.equals(studentPortalRole.getId()) ||
           currentUserPortalRoleId.equals(emeritiPortalRole.getId()) ||
           currentUserPortalRoleId.equals(alumniPortalRole.getId())  ||
           currentUserPortalRoleId.equals(nonObiePortalRole.getId())))
@@ -156,17 +146,6 @@ public static String trimQuotes(String string)
 public static String getUserPicture(String userName)
 {
     return "https://octet1.csr.oberlin.edu/octet/Bb/Photos/expo/" + userName + "/profileImage";
-}
-
-// If the user has a preferred name, their first (given) name will be in the format
-// "preferred (given)".
-// Take in some first name, and if there is a preferred and given name in there,
-// return only the preferred name. If there is not, return the name unchanged.
-public static String getPreferredName(String firstName)
-{
-    int parenthesisIndex = firstName.indexOf('(');
-    if(parenthesisIndex != -1) return firstName.substring(0, parenthesisIndex - 1);
-    else return firstName;
 }
 
 /* For the lulz. */
@@ -290,13 +269,8 @@ private static class LastNameComparator extends NameComparator
 // Compare first names, break ties with last names and then user names.
 private static class FirstNameComparator extends NameComparator
 {
-    private boolean useBothNames;
-    public FirstNameComparator(String term, boolean useBothNames) { super(term); this.useBothNames = useBothNames; }
-    protected String extractComparisonName(User user)
-    {
-        if(useBothNames) return user.getGivenName();
-        else return getPreferredName(user.getGivenName());
-    }
+    public FirstNameComparator(String term) { super(term); }
+    protected String extractComparisonName(User user) { return user.getGivenName(); }
     protected String[] extractTiebreakerNames(User user) { return new String[] { user.getFamilyName(), user.getUserName() }; }
 }
 // Compare user names, break ties with first names and then last names.
@@ -381,7 +355,7 @@ public static String userFirstColumnCode(User user, Id userPortalRoleId)
 
     result.append("<span class=\"userfullname\">");
     String userLastName = user.getFamilyName();
-    String userFirstName = (displayPrivilegedInformation || !userPortalRoleId.equals(studentPortalRole.getId())) ? user.getGivenName() : getPreferredName(user.getGivenName());
+    String userFirstName = user.getGivenName();
     result.append(userLastName);
     result.append(", ");
     result.append(userFirstName);
@@ -432,70 +406,10 @@ public static String userFirstColumnCode(User user, Id userPortalRoleId)
 	return result.toString();
 }
 
-public static String userSecondColumnCode(User user, Id userPortalRoleId, List<String> userAdvisors)
+public static String userSecondColumnCode(User user, Id userPortalRoleId)
 {
     StringBuilder result = new StringBuilder();
-    if(displayPrivilegedInformation && userPortalRoleId.equals(studentPortalRole.getId()))
-    {
-        result.append("<span class=\"fieldtitle\">Major(s): </span>");
-        String userMajor = trimQuotes(user.getDepartment());
-        if(userMajor.startsWith("Major - "))
-            userMajor = userMajor.substring(8);
-        if(userMajor.isEmpty())
-            userMajor = "None listed";
-        result.append(userMajor);
-        result.append("<br /><br />");
-
-        result.append("<span class=\"fieldtitle\">Class dean: </span>");
-        // Format should be something like "FR-Donaldson"
-        String userDean = user.getOtherName();
-        String userYear = "None listed";
-        if(userDean.length() >= 3)
-        {
-            switch(userDean.substring(0, 2))
-            {
-                case "FR":
-                    userYear = "Freshman";
-                    break;
-                case "SO":
-                    userYear = "Sophomore";
-                    break;
-                case "JR":
-                    userYear = "Junior";
-                    break;
-                case "SR":
-                    userYear = "Senior";
-                    break;
-                case "5Y":
-                    userYear = "Fifth year";
-                    break;
-                default:
-                    userYear = userDean.substring(0, 2);
-                    break;
-            }
-            userDean = userDean.substring(3);
-        }
-        else
-            userDean = "None listed";
-        result.append(userDean);
-        result.append("<br /><br /><span class=\"fieldtitle\">Year: </span>");
-        result.append(userYear);
-        result.append("<br /><br />");
-
-        result.append("<span class=\"fieldtitle\">Advisor(s): </span>");
-        if(userAdvisors != null && !userAdvisors.isEmpty())
-        {
-            for(int i = 0; i < userAdvisors.size() - 1; i++)
-            {
-                result.append(trimQuotes(userAdvisors.get(i)));
-                result.append(", ");
-            }
-            result.append(trimQuotes(userAdvisors.get(userAdvisors.size() - 1)));
-        }
-        else
-            result.append("None listed");
-    }
-    else if(userPortalRoleId.equals(facultyPortalRole.getId()) || userPortalRoleId.equals(staffPortalRole.getId()))
+    if(userPortalRoleId.equals(facultyPortalRole.getId()) || userPortalRoleId.equals(staffPortalRole.getId()))
     {
         result.append("<span class=\"fieldtitle\">Department: </span>");
         String userDepartment = trimQuotes(user.getDepartment());
@@ -523,31 +437,11 @@ public static String userSecondColumnCode(User user, Id userPortalRoleId, List<S
     }
     return result.toString();
 }
-
-String userThirdColumnCode(User user, Id userPortalRoleId, List<String> userCourses)
-{
-    StringBuilder result = new StringBuilder();
-    if(displayPrivilegedInformation && userPortalRoleId.equals(studentPortalRole.getId()))
-    {
-        result.append("<br /><span class=\"fieldtitle\">Course(s): </span>");
-        if(userCourses != null && !userCourses.isEmpty())
-            for(String courseName : userCourses)
-            {
-                result.append("<br />&emsp;&emsp;");
-                result.append(trimQuotes(courseName));
-            }
-        else
-            result.append("None listed");
-    }
-    return result.toString();
-}
 %>
 
 <%
 // Create a user loader, for loading users from the database.
 UserDbLoader userLoader = (UserDbLoader)bbPm.getLoader(UserDbLoader.TYPE);
-// Create a course loader, for loading all the courses a given user is enrolled in.
-CourseDbLoader courseLoader = (CourseDbLoader)bbPm.getLoader(CourseDbLoader.TYPE);
 
 // Guess what the current term is, and store its string representation.
 // The format is <year> + ("09" if the term is fall, "02" if the term is spring).
@@ -581,7 +475,7 @@ userSearch.setOnlyShowEnabled(true);
 // parameters for the search
 if(searchCriteria.equals("first"))
 {
-    userSet = new TreeSet(new FirstNameComparator(searchTerm, displayPrivilegedInformation));
+    userSet = new TreeSet(new FirstNameComparator(searchTerm));
     userSearch.setNameParameter(UserSearch.SearchKey.GivenName, SearchOperator.Contains, searchTerm);
 }
 else if(searchCriteria.equals("last"))
@@ -649,15 +543,6 @@ for(User user : userLoader.loadByUserSearch(userSearch))
         // Skip them if they aren't what the user has asked for.
         if(searchRoles.contains(userPortalRoleId))
         {
-            // Unless a member of faculty/staff is performing the search, filter out
-            // student name matches based on legal names instead of preferred names.
-            if(!displayPrivilegedInformation &&
-                searchCriteria.equals("first") &&
-                userPortalRoleId.equals(studentPortalRole.getId()) &&
-               !getPreferredName(user.getGivenName()).toLowerCase().contains(searchTerm.toLowerCase()))
-            {
-                continue;
-            }
             // Add the user to our set. Complexity is neccessary, since some users
             // do not load fully otherwise and userSearch.setPublicInfoOnly(false)
             // doesn't work.
@@ -721,35 +606,13 @@ for(int pageIndex = 0; userIterator.hasNext(); pageIndex++)
         }
         User user = userIterator.next();
         Id userPortalRoleId = portalRoleLoader.loadPrimaryRoleByUserId(user.getId()).getId();
-
-        List<Course> userOrganizations = null;
-        List<String> userCourses = null;
-        List<String> userAdvisors = null;
-        if(displayPrivilegedInformation && userPortalRoleId.equals(studentPortalRole.getId()))
-        {
-            userOrganizations = courseLoader.loadByUserId(user.getId());
-            if(!userOrganizations.isEmpty())
-            {
-                userCourses = new ArrayList<String>();
-                userAdvisors = new ArrayList<String>();
-                for(Course organization : userOrganizations)
-                {
-                    String organizationTitle = organization.getTitle();
-                    if(organizationTitle.startsWith(currentTermString + " "))
-                        userCourses.add(organizationTitle.substring(7));
-                    else if(organizationTitle.startsWith("Advising - "))
-                        userAdvisors.add(organizationTitle.substring(11));
-                }
-            }
-        }
         %>
         <table class="resultstable">
             <tr>
                 <td width="30"></td>
                 <td width="110" valign="middle"><%=userImageCode(user, imageEasterEggs, audioEasterEggs)%></td>
                 <td width="250" valign="middle"><%=userFirstColumnCode(user, userPortalRoleId)%></td>
-                <td width="250" valign="middle"><%=userSecondColumnCode(user, userPortalRoleId, userAdvisors)%></td>
-                <td width="250" valign="top"><%=userThirdColumnCode(user, userPortalRoleId, userCourses)%></td>
+                <td width="250" valign="middle"><%=userSecondColumnCode(user, userPortalRoleId)%></td>
                 <td width="30"></td>
             </tr>
         </table>
