@@ -153,7 +153,7 @@ public static String trimQuotes(String string)
 // Marginally better than hard-coding.
 public static String getUserPicture(String userName)
 {
-    return "https://idcard.oberlin.edu/feed/photo/profile.php?id=" + userName;
+    return "https://idcard.oberlin.edu/feed/photo/profile.php?id=" + userName + "&b";
 }
 
 // If the user has a preferred name, their first (given) name will be in the format
