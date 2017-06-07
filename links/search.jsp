@@ -160,7 +160,7 @@ else
 // Marginally better than hard-coding.
 public static String getUserPicture(String userName)
 {
-return "https://idcard.oberlin.edu/feed/photo/profile.php?id=" + userName;
+return "https://resdev.oberlin.edu/feed/photo/blank/" + userName;
 }
 
 // If the user has a preferred name, their first (given) name will be in the format
@@ -326,7 +326,7 @@ public static String userImageCode(User user, HashMap<String, String> imageEaste
 {
 StringBuilder result = new StringBuilder();
 
-String userName = user.getUserName();
+String userName = user.getBatchUid();
 String userPicture = getUserPicture(userName);
 result.append("<img src=\"");
 result.append(userPicture);
@@ -421,7 +421,7 @@ if(userPortalRoleId.equals(studentPortalRole.getId()))
 }
 else if(userPortalRoleId.equals(facultyPortalRole.getId()) || userPortalRoleId.equals(staffPortalRole.getId()))
 {
-
+/*
     // doing appointment link, open in a new page
     // Note: this is for oberlin-test
     result.append("<span class=\"fieldtitle\">Appointment: </span>");
@@ -457,6 +457,7 @@ else if(userPortalRoleId.equals(facultyPortalRole.getId()) || userPortalRoleId.e
     } else {
         result.append("\"None\"");
     }
+*/
 }
 return result.toString();
 }
